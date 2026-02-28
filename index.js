@@ -7,6 +7,13 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET);
 
 const port = process.env.PORT || 3000
 const crypto = require("crypto");
+const admin = require("firebase-admin");
+
+const serviceAccount = require("./doordrop-firebase-adminsdk.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
 function generateTrackingId() {
   const prefix = "PRCL";
@@ -19,6 +26,27 @@ function generateTrackingId() {
 // middleware
 app.use(express.json());
 app.use(cors());
+
+const verifyFBToken = async (req, res, next) => {
+  const token = req.headers.authorization;
+
+  if (!token) {
+    return res.status(401).send({ message: 'unauthorized access' })
+  }
+
+  try {
+    const idToken = token.split(' ')[1];
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    console.log('decoded in the token', decoded);
+    req.decoded_email = decoded.email;
+    next();
+  }
+  catch (err) {
+    return res.status(401).send({ message: 'unauthorized access' })
+  }
+
+
+}
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.qnleitt.mongodb.net/?appName=Cluster0`;
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -215,6 +243,24 @@ async function run() {
       }
 
       res.send({ success: false })
+    })
+
+
+    app.get('/payments', verifyFBToken, async (req, res) => {
+      const email = req.query.email;
+      const query = {}
+
+      console.log('headers', req.headers);
+
+      if (email) {
+        query.customerEmail = email;
+        if (email !== req.decoded_email) {
+          return res.status(403).send({ message: 'forbidden access' })
+        }
+      }
+      const cursor = paymentCollection.find(query).sort({ paidAt: -1 });
+      const result = await cursor.toArray();
+      res.send(result);
     })
 
     await client.db("admin").command({ ping: 1 });
