@@ -65,6 +65,27 @@ async function run() {
     const db = client.db('door_drop_db');
     const parcelsCollection = db.collection('parcels');
     const paymentCollection = db.collection('payments');
+    const userCollection = db.collection('users');
+    const ridersCollection = db.collection('riders');
+
+
+    //user APIs
+
+    app.post('/users', async (req, res) => {
+      const user = req.body;
+      user.role = 'user';
+      user.createdAt = new Date();
+      const email = user.email;
+
+       const userExists = await userCollection.findOne({ email })
+
+            if (userExists) {
+                return res.send({ message: 'user exists' })
+            }
+
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    })
 
 
     //parcel api
@@ -262,6 +283,17 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     })
+
+
+    //Riders APIs
+
+     app.post('/riders', async (req, res) => {
+            const rider = req.body;
+            rider.status = 'pending';
+            rider.createdAt = new Date();
+            const result = await ridersCollection.insertOne(rider);
+            res.send(result);
+        })
 
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
