@@ -71,6 +71,13 @@ async function run() {
 
     //user APIs
 
+    app.get('/users', verifyFBToken, async (req, res) => {
+      const query = {};
+      const cursor = userCollection.find(query).sort({ createdAt: -1 });
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     app.post('/users', async (req, res) => {
       const user = req.body;
       user.role = 'user';
@@ -84,6 +91,19 @@ async function run() {
       }
 
       const result = await userCollection.insertOne(user);
+      res.send(result);
+    })
+
+    app.patch('/users/:id', verifyFBToken, async (req, res) => {
+      const id = req.params.id;
+      const roleInfo = req.body;
+      const query = { _id: new ObjectId(id) }
+      const updatedDoc = {
+        $set: {
+          role: roleInfo.role
+        }
+      }
+      const result = await userCollection.updateOne(query, updatedDoc)
       res.send(result);
     })
 
@@ -318,11 +338,22 @@ async function run() {
 
       const result = await ridersCollection.updateOne(query, updatedDoc);
 
+      if (status === 'approved') {
+        const email = req.body.email;
+        const userQuery = { email }
+        const updateUser = {
+          $set: {
+            role: 'rider'
+          }
+        }
+        const userResult = await userCollection.updateOne(userQuery, updateUser);
+      }
+
       res.send(result);
     })
 
 
-     app.delete('/riders/:id', async (req, res) => {
+    app.delete('/riders/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
 
@@ -331,7 +362,7 @@ async function run() {
     })
 
 
-  
+
 
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
