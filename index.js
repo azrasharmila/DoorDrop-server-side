@@ -68,13 +68,13 @@ async function run() {
     const userCollection = db.collection('users');
     const ridersCollection = db.collection('riders');
 
-    const verifyAdmin =async(req,res,next) =>{
+    const verifyAdmin = async (req, res, next) => {
       const email = req.decoded_email;
-      const query = { email }; 
+      const query = { email };
       const user = await userCollection.findOne(query);
 
-      if(!user || user.role !== 'admin'){
-        return res.status(403).send({message:'forbidden access'});
+      if (!user || user.role !== 'admin') {
+        return res.status(403).send({ message: 'forbidden access' });
       }
       next();
     }
@@ -83,7 +83,16 @@ async function run() {
     //user APIs
 
     app.get('/users', verifyFBToken, async (req, res) => {
+      const searchText = req.query.searchText;
       const query = {};
+      if (searchText) {
+
+        query.$or = [
+          { displayName: { $regex: searchText, $options: 'i' } },
+          { email: { $regex: searchText, $options: 'i' } },
+        ]
+
+      }
       const cursor = userCollection.find(query).sort({ createdAt: -1 });
       const result = await cursor.toArray();
       res.send(result);
@@ -116,7 +125,7 @@ async function run() {
       res.send(result);
     })
 
-    app.patch('/users/:id/role', verifyFBToken,verifyAdmin, async (req, res) => {
+    app.patch('/users/:id/role', verifyFBToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const roleInfo = req.body;
       const query = { _id: new ObjectId(id) }
