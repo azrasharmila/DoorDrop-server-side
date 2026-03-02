@@ -143,10 +143,14 @@ async function run() {
 
     app.get('/parcels', async (req, res) => {
       const query = {}
-      const { email } = req.query;
-      // /parcels?email=''&
+      const { email, deliveryStatus} = req.query;
+      
       if (email) {
         query.senderEmail = email;
+      }
+      if(deliveryStatus){
+        query.deliveryStatus= deliveryStatus;
+
       }
 
       const options = { sort: { createdAt: -1 } }
@@ -282,6 +286,7 @@ async function run() {
         const update = {
           $set: {
             paymentStatus: 'paid',
+            deliveryStatus: 'pending-pickup',
             trackingId: trackingId
           }
         }
@@ -339,10 +344,18 @@ async function run() {
     //Riders APIs
 
     app.get('/riders', async (req, res) => {
+      const {status, district,workStatus}= req.query;
       const query = {}
-      if (req.query.status) {
-        query.status = req.query.status;
+      if (status) {
+        query.status = status;
       }
+      if(district){
+        query.district = district;
+      }
+      if(workStatus){
+        query.workStatus = workStatus
+      }
+
       const cursor = ridersCollection.find(query)
       const result = await cursor.toArray();
       res.send(result);
@@ -357,13 +370,14 @@ async function run() {
     })
 
 
-    app.patch('/riders/:id', verifyFBToken, async (req, res) => {
+    app.patch('/riders/:id', verifyFBToken,verifyAdmin, async (req, res) => {
       const status = req.body.status;
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const updatedDoc = {
         $set: {
-          status: status
+          status: status,
+          workStatus:'available'
         }
       }
 
