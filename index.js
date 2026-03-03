@@ -143,13 +143,13 @@ async function run() {
 
     app.get('/parcels', async (req, res) => {
       const query = {}
-      const { email, deliveryStatus} = req.query;
-      
+      const { email, deliveryStatus } = req.query;
+
       if (email) {
         query.senderEmail = email;
       }
-      if(deliveryStatus){
-        query.deliveryStatus= deliveryStatus;
+      if (deliveryStatus) {
+        query.deliveryStatus = deliveryStatus;
 
       }
 
@@ -179,6 +179,56 @@ async function run() {
       const result = await parcelsCollection.insertOne(parcel);
       res.send(result)
     })
+
+    app.patch('/parcels/:id', async (req, res) => {
+      const { id } = req.params;
+      const updates = req.body;
+
+      const allowedFields = [
+        "receiverName",
+        "receiverEmail",
+        "receiverMobile",
+        "receiverRegion",
+        "receiverDistrict",
+        "receiverAddress",
+        "parcelWeight",
+        "parcelType",
+        "parcelName",
+        "senderAddress",
+        "senderMobile"
+      ];
+
+      const filteredUpdates = {};
+      for (const key of Object.keys(updates)) {
+        if (allowedFields.includes(key)) {
+          filteredUpdates[key] = updates[key];
+        }
+      }
+
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).send({ error: "Invalid parcel ID" });
+      }
+
+      if (Object.keys(filteredUpdates).length === 0) {
+        return res.status(400).send({ error: "No valid fields provided to update" });
+      }
+
+      try {
+        const result = await parcelsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: filteredUpdates }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ error: "Parcel not found" });
+        }
+
+        res.send({ success: true, modifiedCount: result.modifiedCount });
+      } catch (error) {
+        console.error("Error updating parcel:", error);
+        res.status(500).send({ error: "Internal Server Error" });
+      }
+    });
 
 
     app.delete('/parcels/:id', async (req, res) => {
@@ -344,15 +394,15 @@ async function run() {
     //Riders APIs
 
     app.get('/riders', async (req, res) => {
-      const {status, district,workStatus}= req.query;
+      const { status, district, workStatus } = req.query;
       const query = {}
       if (status) {
         query.status = status;
       }
-      if(district){
+      if (district) {
         query.district = district;
       }
-      if(workStatus){
+      if (workStatus) {
         query.workStatus = workStatus
       }
 
@@ -370,14 +420,14 @@ async function run() {
     })
 
 
-    app.patch('/riders/:id', verifyFBToken,verifyAdmin, async (req, res) => {
+    app.patch('/riders/:id', verifyFBToken, verifyAdmin, async (req, res) => {
       const status = req.body.status;
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const updatedDoc = {
         $set: {
           status: status,
-          workStatus:'available'
+          workStatus: 'available'
         }
       }
 
