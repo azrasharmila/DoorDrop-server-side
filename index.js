@@ -75,7 +75,7 @@ async function run() {
     ridersCollection = db.collection('riders');
 
     console.log('MongoDB connected');
-    
+
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded_email;
       const query = { email };
@@ -168,64 +168,72 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     })
-// Backend: server/routes/parcels.js (or wherever your routes are)
+
 app.get('/parcels/rider', async (req, res) => {
-   console.log(req.query);
-  try {
-    const { riderEmail, deliveryStatus } = req.query;
+            const { riderEmail, deliveryStatus } = req.query;
+            const query = {}
 
-    // 1️⃣ Validate query parameters
-    if (!riderEmail || !deliveryStatus) {
-      return res.status(400).json({ error: 'Missing query parameters: riderEmail and deliveryStatus are required' });
-    }
+            if (riderEmail) {
+                query.riderEmail = riderEmail
+            }
+            if (deliveryStatus !== 'parcel_delivered') {
+                 query.deliveryStatus = {$in: ['driver_assigned', 'rider_arriving']}
+                //query.deliveryStatus = { $nin: ['parcel_delivered'] }
+            }
+            else {
+                query.deliveryStatus = deliveryStatus;
+            }
 
-    // 2️⃣ Build the query safely
-    const query = {
-      riderEmail: riderEmail,
-      deliveryStatus: deliveryStatus
-    };
-
-    // 3️⃣ Fetch from MongoDB
-    const parcels = await parcelsCollection.find(query).toArray();
-
-    // 4️⃣ Return results
-    return res.status(200).json(parcels);
-
-  } catch (error) {
-    // 5️⃣ Catch any unexpected errors
-    console.error('Error fetching parcels for rider:', error);
-    return res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
+            const cursor = parcelsCollection.find(query)
+            const result = await cursor.toArray();
+            res.send(result);
+        })
     
 
    app.get('/parcels/:id', async (req, res) => {
   const id = req.params.id;
 
-  // 1️⃣ Validate ID
+  
   if (!ObjectId.isValid(id)) {
     return res.status(400).json({ error: 'Invalid parcel ID' });
   }
 
   try {
-    // 2️⃣ Safe database query
+   
     const query = { _id: new ObjectId(id) };
     const result = await parcelsCollection.findOne(query);
 
-    // 3️⃣ Handle not found
-    if (!result) {
+   if (!result) {
       return res.status(404).json({ error: 'Parcel not found' });
     }
 
-    // 4️⃣ Return result
-    res.json(result);
+   res.json(result);
 
   } catch (error) {
-    // 5️⃣ Catch unexpected errors
+    
     console.error('Error fetching parcel by ID:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+app.patch('/parcels/:id/status', async (req, res) => {
+   console.log('Parcel ID:', req.params.id);
+    console.log('Body:', req.body);
+        const { deliveryStatus } = req.body;
+        
+                    const query = { _id: new ObjectId(req.params.id) }
+                    const updatedDoc = {
+                $set: {
+                    deliveryStatus: deliveryStatus
+                }
+            }
+
+            const result = await parcelsCollection.updateOne(query, updatedDoc)
+            // log tracking
+            
+
+            res.send(result);
+        })
+                
 
 
 
