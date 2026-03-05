@@ -10,6 +10,7 @@ const crypto = require("crypto");
 const admin = require("firebase-admin");
 
 const serviceAccount = require("./doordrop-firebase-adminsdk.json");
+const { cursorTo } = require('readline');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -57,17 +58,24 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   }
 });
+let parcelsCollection;
+let paymentCollection;
+let userCollection;
+let ridersCollection;
+
 async function run() {
   try {
 
     await client.connect();
 
     const db = client.db('door_drop_db');
-    const parcelsCollection = db.collection('parcels');
-    const paymentCollection = db.collection('payments');
-    const userCollection = db.collection('users');
-    const ridersCollection = db.collection('riders');
+     parcelsCollection = db.collection('parcels');
+    paymentCollection = db.collection('payments');
+    userCollection = db.collection('users');
+    ridersCollection = db.collection('riders');
 
+    console.log('MongoDB connected');
+    
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded_email;
       const query = { email };
@@ -160,15 +168,64 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     })
+// Backend: server/routes/parcels.js (or wherever your routes are)
+app.get('/parcels/rider', async (req, res) => {
+   console.log(req.query);
+  try {
+    const { riderEmail, deliveryStatus } = req.query;
 
+    // 1️⃣ Validate query parameters
+    if (!riderEmail || !deliveryStatus) {
+      return res.status(400).json({ error: 'Missing query parameters: riderEmail and deliveryStatus are required' });
+    }
 
-    app.get('/parcels/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
-      const result = await parcelsCollection.findOne(query);
-      res.send(result);
+    // 2️⃣ Build the query safely
+    const query = {
+      riderEmail: riderEmail,
+      deliveryStatus: deliveryStatus
+    };
 
-    })
+    // 3️⃣ Fetch from MongoDB
+    const parcels = await parcelsCollection.find(query).toArray();
+
+    // 4️⃣ Return results
+    return res.status(200).json(parcels);
+
+  } catch (error) {
+    // 5️⃣ Catch any unexpected errors
+    console.error('Error fetching parcels for rider:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+    
+
+   app.get('/parcels/:id', async (req, res) => {
+  const id = req.params.id;
+
+  // 1️⃣ Validate ID
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).json({ error: 'Invalid parcel ID' });
+  }
+
+  try {
+    // 2️⃣ Safe database query
+    const query = { _id: new ObjectId(id) };
+    const result = await parcelsCollection.findOne(query);
+
+    // 3️⃣ Handle not found
+    if (!result) {
+      return res.status(404).json({ error: 'Parcel not found' });
+    }
+
+    // 4️⃣ Return result
+    res.json(result);
+
+  } catch (error) {
+    // 5️⃣ Catch unexpected errors
+    console.error('Error fetching parcel by ID:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
 
 
 
@@ -180,7 +237,7 @@ async function run() {
       res.send(result)
     })
 
-    app.patch('/parcels/:id', async (req, res) => {
+    app.patch('/parcels/update/:id', async (req, res) => {
       const { id } = req.params;
       const updates = req.body;
 
@@ -229,6 +286,31 @@ async function run() {
         res.status(500).send({ error: "Internal Server Error" });
       }
     });
+app.patch('/parcels/:id', async (req, res) => {
+      const {parcelId,riderId,riderName,riderEmail } = req.body;
+      const id=req.params.id;
+      const query={_id:new ObjectId(id)}
+
+      const updatedDoc={
+        $set: {
+          deliveryStatus:'driver_assigned',
+          riderId: riderId,
+          riderName: riderName,
+          riderEmail:riderEmail
+        }
+      }
+      const result= await parcelsCollection.updateOne(query,updatedDoc)
+            const riderQuery={_id:new ObjectId(id)}
+            const riderUpdatedDoc={
+              $set:{
+                workStatus:'in_delivery'
+              }
+            }
+            const riderResult=await ridersCollection.updateOne(riderQuery,riderUpdatedDoc);
+            res.send(riderResult)
+
+})
+      
 
 
     app.delete('/parcels/:id', async (req, res) => {
@@ -421,16 +503,12 @@ async function run() {
 
 
     app.patch('/riders/:id', verifyFBToken, verifyAdmin, async (req, res) => {
-      const status = req.body.status;
+     
       const id = req.params.id;
+      const { status, workStatus } = req.body;
       const query = { _id: new ObjectId(id) }
-      const updatedDoc = {
-        $set: {
-          status: status,
-          workStatus: 'available'
-        }
-      }
-
+      const updatedDoc = { $set: { status: status } };
+  if (workStatus) updatedDoc.$set.workStatus = workStatus; 
       const result = await ridersCollection.updateOne(query, updatedDoc);
 
       if (status === 'approved') {
