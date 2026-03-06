@@ -177,8 +177,8 @@ app.get('/parcels/rider', async (req, res) => {
                 query.riderEmail = riderEmail
             }
             if (deliveryStatus !== 'parcel_delivered') {
-                 query.deliveryStatus = {$in: ['driver_assigned', 'rider_arriving']}
-                //query.deliveryStatus = { $nin: ['parcel_delivered'] }
+                 //query.deliveryStatus = {$in: ['driver_assigned', 'rider_arriving']}
+                query.deliveryStatus = { $nin: ['parcel_delivered'] }
             }
             else {
                 query.deliveryStatus = deliveryStatus;
