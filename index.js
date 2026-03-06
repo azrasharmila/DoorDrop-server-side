@@ -218,7 +218,7 @@ app.get('/parcels/rider', async (req, res) => {
 app.patch('/parcels/:id/status', async (req, res) => {
    console.log('Parcel ID:', req.params.id);
     console.log('Body:', req.body);
-        const { deliveryStatus } = req.body;
+        const { deliveryStatus,riderId } = req.body;
         
                     const query = { _id: new ObjectId(req.params.id) }
                     const updatedDoc = {
@@ -226,6 +226,17 @@ app.patch('/parcels/:id/status', async (req, res) => {
                     deliveryStatus: deliveryStatus
                 }
             }
+            if (deliveryStatus === 'parcel_delivered') {
+                            // update rider information
+                            const riderQuery = { _id: new ObjectId(riderId) }
+                            const riderUpdatedDoc = {
+                                $set: {
+                                    workStatus: 'available'
+                                }
+                            }
+                            const riderResult = await ridersCollection.updateOne(riderQuery, riderUpdatedDoc);
+                        }
+            
 
             const result = await parcelsCollection.updateOne(query, updatedDoc)
             // log tracking
@@ -308,7 +319,7 @@ app.patch('/parcels/:id', async (req, res) => {
         }
       }
       const result= await parcelsCollection.updateOne(query,updatedDoc)
-            const riderQuery={_id:new ObjectId(id)}
+            const riderQuery={_id:new ObjectId(riderId)}
             const riderUpdatedDoc={
               $set:{
                 workStatus:'in_delivery'
@@ -492,10 +503,10 @@ app.patch('/parcels/:id', async (req, res) => {
       if (district) {
         query.district = district;
       }
-      if (workStatus) {
-        query.workStatus = workStatus
-      }
-
+      // if (workStatus) {
+      //   query.workStatus = workStatus
+      // }
+console.log('query',query)
       const cursor = ridersCollection.find(query)
       const result = await cursor.toArray();
       res.send(result);
@@ -504,37 +515,40 @@ app.patch('/parcels/:id', async (req, res) => {
     app.post('/riders', async (req, res) => {
       const rider = req.body;
       rider.status = 'pending';
+      //rider.workStatus = 'available';
       rider.createdAt = new Date();
       const result = await ridersCollection.insertOne(rider);
       res.send(result);
     })
 
-
     app.patch('/riders/:id', verifyFBToken, verifyAdmin, async (req, res) => {
-     
-      const id = req.params.id;
-      const { status, workStatus } = req.body;
-      const query = { _id: new ObjectId(id) }
-      const updatedDoc = { $set: { status: status } };
-  if (workStatus) updatedDoc.$set.workStatus = workStatus; 
-      const result = await ridersCollection.updateOne(query, updatedDoc);
-
-      if (status === 'approved') {
-        const email = req.body.email;
-        const userQuery = { email }
-        const updateUser = {
-          $set: {
-            role: 'rider'
-          }
-        }
-        const userResult = await userCollection.updateOne(userQuery, updateUser);
-      }
-
-      res.send(result);
-    })
-
-
-    app.delete('/riders/:id', async (req, res) => {
+                const status = req.body.status;
+                const id = req.params.id;
+                const query = { _id: new ObjectId(id) }
+                const updatedDoc = {
+                    $set: {
+                        status: status,
+                        workStatus: 'available'
+                    }
+                }
+    
+                const result = await ridersCollection.updateOne(query, updatedDoc);
+    
+                if (status === 'approved') {
+                    const email = req.body.email;
+                    const userQuery = { email }
+                    const updateUser = {
+                        $set: {
+                            role: 'rider'
+                        }
+                    }
+                    const userResult = await userCollection.updateOne(userQuery, updateUser);
+                }
+    
+                res.send(result);
+            })
+    
+     app.delete('/riders/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
 
