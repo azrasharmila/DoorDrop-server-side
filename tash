@@ -1,0 +1,20 @@
+[33m65cad05[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{0}: pull origin main: Fast-forward
+[33m79f98a6[m HEAD@{1}: reset: moving to HEAD
+[33m79f98a6[m HEAD@{2}: pull origin main: Fast-forward
+[33m7114a44[m HEAD@{3}: pull origin main: Fast-forward
+[33ma8f2de1[m HEAD@{4}: reset: moving to HEAD
+[33ma8f2de1[m HEAD@{5}: commit: Implemented update parcel functionality
+[33m8f8a268[m HEAD@{6}: commit: Updated important info for pending-pickup & available riders
+[33mff06c7b[m HEAD@{7}: commit: Implemented search option in user management
+[33ma65a0b6[m HEAD@{8}: commit: Created verifyAdin middleware to protect admin functionality
+[33m57dc026[m HEAD@{9}: commit: Implemented necessery get, post, and patch APIs for user management page
+[33m3f9ae38[m HEAD@{10}: commit: Added rider delete functionality
+[33mef92a8d[m HEAD@{11}: commit: Added rider patch api for status update
+[33mfcc0481[m HEAD@{12}: commit: Added post api to save rider data to database
+[33m24bafb6[m HEAD@{13}: commit: JWT token verification
+[33mcc6f74f[m HEAD@{14}: reset: moving to HEAD
+[33mcc6f74f[m HEAD@{15}: commit: Solved duplicate payment entry
+[33m942ddf7[m HEAD@{16}: commit: Integrated payment gateway with stripe
+[33m41c6e92[m HEAD@{17}: commit: Implemented detete parcel funtionality on my parcels
+[33m6a816f0[m HEAD@{18}: Branch: renamed refs/heads/master to refs/heads/main
+[33m6a816f0[m HEAD@{20}: commit (initial): Project setup+ implemented parcel get and post APIs
