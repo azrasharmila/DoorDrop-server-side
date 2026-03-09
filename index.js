@@ -11,6 +11,8 @@ const admin = require("firebase-admin");
 
 const serviceAccount = require("./doordrop-firebase-adminsdk.json");
 const { cursorTo } = require('readline');
+const { group } = require('console');
+const { pipeline } = require('stream');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -84,6 +86,19 @@ async function run() {
       }
       next();
     }
+    const verifyRider = async (req, res, next) => {
+      const email = req.decoded_email;
+      const query = { email };
+      const user = await userCollection.findOne(query);
+
+      if (!user || user.role !== 'rider') {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+      next();
+    }
+
+
+
     const logTracking = async (trackingId, status) => {
       const log = {
         trackingId,
@@ -204,7 +219,26 @@ async function run() {
       const result = await parcelsCollection.findOne(query);
       res.send(result);
     })
+    app.get('/parcels/delivery-status/stats', async (req, res) => {
+      const pipeline = [
+        {
+          $group: {
+            _id: '$deliveryStatus',
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $project: {
+            status: '$_id',
+            count: 1
+          }
 
+
+        }
+      ];
+      const result = await parcelsCollection.aggregate(pipeline).toArray();
+      res.send(result);
+    });
     app.patch('/parcels/:id/status', async (req, res) => {
       console.log('Parcel ID:', req.params.id);
       console.log('Body:', req.body);
@@ -461,24 +495,24 @@ async function run() {
           trackingId: trackingId
         }
 
-        if (session.payment_status === 'paid') {
-          const resultPayment = await paymentCollection.insertOne(payment)
 
-          logTracking(trackingId, 'parcel_paid')
+        const resultPayment = await paymentCollection.insertOne(payment)
+
+        logTracking(trackingId, 'parcel_paid')
 
 
-          res.send({
-            success: true,
-            modifyParcel: result,
-            trackingId: trackingId,
-            transactionId: session.payment_intent,
-            paymentInfo: resultPayment
-          })
-        }
+        return res.send({
+          success: true,
+          modifyParcel: result,
+          trackingId: trackingId,
+          transactionId: session.payment_intent,
+          paymentInfo: resultPayment
+        })
+
 
       }
 
-      res.send({ success: false })
+      return res.send({ success: false })
     })
 
 
@@ -519,6 +553,57 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     })
+
+    app.get('/riders/delivery/per-day', async (req, res) => {
+
+      const email = req.query.email;
+      //aggerate on parcel
+      const pipeline = [
+        //  Filter parcels delivered by this rider
+        {
+          $match: {
+            riderEmail: email,
+            deliveryStatus: 'parcel_delivered'
+          }
+        },
+        //  Join with trackings
+        {
+          $lookup: {
+            from: 'trackings',
+            localField: 'trackingId',
+            foreignField: 'trackingId',
+            as: 'parcel_trackings'
+          }
+        },
+        // Flatten trackings array
+        { $unwind: '$parcel_trackings' },
+        // Only delivered trackings
+        {
+          $match: {
+            'parcel_trackings.status': 'parcel_delivered'
+          }
+        },
+        // 5️⃣ Group by day and count
+        {
+          $group: {
+            _id: {
+              $dateToString: { format: "%Y-%m-%d", date: "$parcel_trackings.createdAt" }
+            },
+            deliveredCount: { $sum: 1 }
+          }
+        },
+
+      ];
+      const result = await parcelsCollection.aggregate(pipeline).toArray();
+      res.send(result)
+
+
+    })
+
+
+
+
+
 
     app.post('/riders', async (req, res) => {
       const rider = req.body;
