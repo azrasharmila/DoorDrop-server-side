@@ -73,6 +73,8 @@ async function run() {
     const userCollection = db.collection('users');
     const ridersCollection = db.collection('riders');
     const trackingsCollection = db.collection('trackings');
+    const reviewsCollection = db.collection('reviews');
+
 
     console.log('MongoDB connected');
 
@@ -655,6 +657,23 @@ async function run() {
       const result = await trackingsCollection.find(query).toArray();
       res.send(result);
     })
+
+
+    //Review
+
+    app.post('/reviews', verifyFBToken, async (req, res) => {
+      const review = req.body;
+      review.email = req.decoded_email;
+      review.createdAt = new Date();
+      const result = await reviewsCollection.insertOne(review);
+      res.send(result);
+    });
+
+    app.get('/reviews', async (req, res) => {
+      const cursor = reviewsCollection.find({}).sort({ createdAt: -1 });
+      const result = await cursor.toArray();
+      res.send(result);
+    });
 
 
 
