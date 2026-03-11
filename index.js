@@ -273,9 +273,39 @@ async function run() {
     })
 
 
+//for rider dash 
+// Get parcel counts by status for a specific rider
+app.get('/parcels/rider/status-counts', async (req, res) => {
+  try {
+    const riderEmail = req.query.riderEmail;
+    if (!riderEmail) return res.status(400).send({ error: 'Rider email is required' });
+
+    // Aggregate parcels by deliveryStatus
+    const pipeline = [
+      { $match: { riderEmail } },
+      { $group: { _id: '$deliveryStatus', count: { $sum: 1 } } }
+    ];
+
+    const counts = await parcelsCollection.aggregate(pipeline).toArray();
+
+    // Map the counts to assigned / pending / delivered
+    const assigned = counts.find(c => c._id === 'driver_assigned')?.count || 0;
+    const pending = counts
+      .filter(c => ['pending-pickup', 'in_delivery'].includes(c._id))
+      .reduce((sum, c) => sum + c.count, 0);
+    const delivered = counts.find(c => c._id === 'parcel_delivered')?.count || 0;
+
+    res.send({ assigned, pending, delivered });
+
+  } catch (error) {
+    console.error('Error fetching rider parcel stats:', error);
+    res.status(500).send({ error: 'Internal Server Error' });
+  }
+});
 
 
 
+//finish
     app.post('/parcels', async (req, res) => {
       const parcel = req.body;
       const trackingId = generateTrackingId();
@@ -661,7 +691,7 @@ async function run() {
 
     //Review
 
-    app.post('/reviews', verifyFBToken, async (req, res) => {
+    app.post('/reviews', async (req, res) => {
       const review = req.body;
       review.email = req.decoded_email;
       review.createdAt = new Date();
