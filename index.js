@@ -203,7 +203,7 @@ async function run() {
       }
       if (deliveryStatus !== 'parcel_delivered') {
         //query.deliveryStatus = {$in: ['driver_assigned', 'rider_arriving']}
-        query.deliveryStatus = { $nin: ['parcel_delivered'] }
+        query.deliveryStatus = { $nin: ['parcel_delivered','pending-pickup'] }
       }
       else {
         query.deliveryStatus = deliveryStatus;
