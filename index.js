@@ -203,7 +203,7 @@ async function run() {
       }
       if (deliveryStatus !== 'parcel_delivered') {
         //query.deliveryStatus = {$in: ['driver_assigned', 'rider_arriving']}
-        query.deliveryStatus = { $nin: ['parcel_delivered','pending-pickup'] }
+        query.deliveryStatus = { $nin: ['parcel_delivered', 'pending-pickup'] }
       }
       else {
         query.deliveryStatus = deliveryStatus;
@@ -273,39 +273,39 @@ async function run() {
     })
 
 
-//for rider dash 
-// Get parcel counts by status for a specific rider
-app.get('/parcels/rider/status-counts', async (req, res) => {
-  try {
-    const riderEmail = req.query.riderEmail;
-    if (!riderEmail) return res.status(400).send({ error: 'Rider email is required' });
+    //for rider dash 
+    // Get parcel counts by status for a specific rider
+    app.get('/parcels/rider/status-counts', async (req, res) => {
+      try {
+        const riderEmail = req.query.riderEmail;
+        if (!riderEmail) return res.status(400).send({ error: 'Rider email is required' });
 
-    // Aggregate parcels by deliveryStatus
-    const pipeline = [
-      { $match: { riderEmail } },
-      { $group: { _id: '$deliveryStatus', count: { $sum: 1 } } }
-    ];
+        // Aggregate parcels by deliveryStatus
+        const pipeline = [
+          { $match: { riderEmail } },
+          { $group: { _id: '$deliveryStatus', count: { $sum: 1 } } }
+        ];
 
-    const counts = await parcelsCollection.aggregate(pipeline).toArray();
+        const counts = await parcelsCollection.aggregate(pipeline).toArray();
 
-    // Map the counts to assigned / pending / delivered
-    const assigned = counts.find(c => c._id === 'driver_assigned')?.count || 0;
-    const pending = counts
-      .filter(c => ['pending-pickup', 'in_delivery'].includes(c._id))
-      .reduce((sum, c) => sum + c.count, 0);
-    const delivered = counts.find(c => c._id === 'parcel_delivered')?.count || 0;
+        // Map the counts to assigned / pending / delivered
+        const assigned = counts.find(c => c._id === 'driver_assigned')?.count || 0;
+        const pending = counts
+          .filter(c => ['pending-pickup', 'in_delivery'].includes(c._id))
+          .reduce((sum, c) => sum + c.count, 0);
+        const delivered = counts.find(c => c._id === 'parcel_delivered')?.count || 0;
 
-    res.send({ assigned, pending, delivered });
+        res.send({ assigned, pending, delivered });
 
-  } catch (error) {
-    console.error('Error fetching rider parcel stats:', error);
-    res.status(500).send({ error: 'Internal Server Error' });
-  }
-});
+      } catch (error) {
+        console.error('Error fetching rider parcel stats:', error);
+        res.status(500).send({ error: 'Internal Server Error' });
+      }
+    });
 
 
 
-//finish
+    //finish
     app.post('/parcels', async (req, res) => {
       const parcel = req.body;
       const trackingId = generateTrackingId();
@@ -569,8 +569,11 @@ app.get('/parcels/rider/status-counts', async (req, res) => {
     //Riders APIs
 
     app.get('/riders', async (req, res) => {
-      const { status, district, workStatus } = req.query;
+      const { status, district, workStatus, email } = req.query;
       const query = {}
+      if (email) {
+        query.email = email; 
+      }
       if (status) {
         query.status = status;
       }
