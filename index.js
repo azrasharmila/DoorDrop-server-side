@@ -26,6 +26,10 @@ function generateTrackingId() {
   return `${prefix}-${date}-${random}`;
 }
 
+const generateOTP = () => {
+  return Math.floor(1000 + Math.random() * 9000).toString();
+};
+
 // middleware
 app.use(express.json());
 app.use(cors());
@@ -208,11 +212,30 @@ async function run() {
       else {
         query.deliveryStatus = deliveryStatus;
       }
+      const options = {
+        sort: { createdAt: -1 }
+      }
 
-      const cursor = parcelsCollection.find(query)
+      const cursor = parcelsCollection.find(query, options)
       const result = await cursor.toArray();
       res.send(result);
     })
+
+    app.get('/parcels/receiver', async (req, res) => {
+      const email = req.query.email;
+
+      if (!email) {
+        return res.status(400).send({ error: "Email required" });
+      }
+
+      const query = { receiverEmail: email };
+
+      const options = { sort: { createdAt: -1 } };
+
+      const result = await parcelsCollection.find(query, options).toArray();
+
+      res.send(result);
+    });
 
 
     app.get('/parcels/:id', async (req, res) => {
@@ -305,7 +328,7 @@ async function run() {
 
 
 
-    //finish
+
     app.post('/parcels', async (req, res) => {
       const parcel = req.body;
       const trackingId = generateTrackingId();
@@ -320,6 +343,7 @@ async function run() {
     app.patch('/parcels/:id', async (req, res) => {
       const { parcelId, riderId, riderName, riderEmail, trackingId } = req.body;
       const id = req.params.id;
+      const otp = generateOTP();
       const query = { _id: new ObjectId(id) }
 
       const updatedDoc = {
@@ -327,7 +351,9 @@ async function run() {
           deliveryStatus: 'driver_assigned',
           riderId: riderId,
           riderName: riderName,
-          riderEmail: riderEmail
+          riderEmail: riderEmail,
+          deliveryOTP: otp,         
+          otpVerified: false
         }
       }
       const result = await parcelsCollection.updateOne(query, updatedDoc)
@@ -396,6 +422,39 @@ async function run() {
         console.error("Error updating parcel:", error);
         res.status(500).send({ error: "Internal Server Error" });
       }
+    });
+
+
+    app.patch('/parcels/:id/verify-otp', async (req, res) => {
+      const { otp, trackingId } = req.body;
+
+      const parcel = await parcelsCollection.findOne({
+        _id: new ObjectId(req.params.id)
+      });
+
+      if (!parcel) {
+        return res.send({ success: false });
+      }
+
+
+      if (parcel.deliveryOTP !== otp) {
+        return res.send({ success: false });
+      }
+
+
+      const result = await parcelsCollection.updateOne(
+        { _id: parcel._id },
+        {
+          $set: {
+            deliveryStatus: 'parcel_delivered',
+            otpVerified: true
+          }
+        }
+      );
+
+      logTracking(trackingId, 'parcel_delivered');
+
+      res.send({ success: true });
     });
 
 
@@ -572,7 +631,7 @@ async function run() {
       const { status, district, workStatus, email } = req.query;
       const query = {}
       if (email) {
-        query.email = email; 
+        query.email = email;
       }
       if (status) {
         query.status = status;
@@ -601,7 +660,7 @@ async function run() {
             deliveryStatus: 'parcel_delivered'
           }
         },
-        //  Join with trackings
+
         {
           $lookup: {
             from: 'trackings',
@@ -610,7 +669,7 @@ async function run() {
             as: 'parcel_trackings'
           }
         },
-        // Flatten trackings array
+
         { $unwind: '$parcel_trackings' },
         // Only delivered trackings
         {
@@ -618,7 +677,7 @@ async function run() {
             'parcel_trackings.status': 'parcel_delivered'
           }
         },
-        // 5️⃣ Group by day and count
+
         {
           $group: {
             _id: {
