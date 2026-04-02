@@ -352,7 +352,7 @@ async function run() {
           riderId: riderId,
           riderName: riderName,
           riderEmail: riderEmail,
-          deliveryOTP: otp,         
+          deliveryOTP: otp,
           otpVerified: false
         }
       }
@@ -452,9 +452,20 @@ async function run() {
         }
       );
 
+      if (parcel.riderId) {
+        await ridersCollection.updateOne(
+          { _id: new ObjectId(parcel.riderId) },
+          {
+            $set: {
+              workStatus: 'available'
+            }
+          }
+        );
+      }
+
       logTracking(trackingId, 'parcel_delivered');
 
-      res.send({ success: true });
+      res.send({ success: true, updatedParcel: { ...parcel, deliveryStatus: 'parcel_delivered', otpVerified: true } });
     });
 
 
